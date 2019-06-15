@@ -1,0 +1,132 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Oct 20 20:24:33 2017
+@author: Will Han
+"""
+#THIS SCRIPT WILL GATHER THE REVIEWS OF HOME DEPOT ON INDEED.COM, ANALYZE THEM WITH A 
+#TRAINED NAIVE BAYES CLASSIFIER, AND STORE THE DATA INTO KIBANA
+
+import requests
+from lxml import html
+import collections
+from urllib.parse import urljoin
+from bs4 import BeautifulSoup
+from elasticsearch import Elasticsearch
+import json
+from textblob import TextBlob
+from textblob.classifiers import NaiveBayesClassifier
+import html2text
+import jsonpickle
+
+es = Elasticsearch()
+es.indices.create(index='homedepot', ignore=400)
+print("ELASTIC SEARCH INDEX CREATED!!")
+
+train = [
+    ("Hardest part of the job was the amount of hours management worked.", "neg"),
+    ("Lowest paid management position I've ever had.", "neg"),
+    ("No weekends off, rarely have evenings off.", "neg"),
+    ("nepotism is always a problem.", "neg"),
+    ("Management not trustworthy.", "neg"),
+    ("you wont make much.", "neg"),
+    ("they often reduced staff to keep payroll down.", "neg"),
+    ("management do not care about employees who go above and beyond their duties.", "neg"),
+    ("supervisors do not care about customers either.", "neg"),
+    ("The most difficult for me was the management's inability to create a sence of urgency across the staff.", "neg"),
+    ("It is a full time 11-15 hours a day job that truly doesn't have a work life balance.", "neg"),
+    ("If you love working and not seeing your family this is the job for you.", "neg"),
+    ("Although compensation is good the work/life balance is pretty terrible.", "neg"),
+    ("Did not like loading bags of mulch, sand, cement into customers cars.", "neg"),
+    ("Tend to overwork workers that are there.", "neg"),
+    ("Store manager seems unwilling to make necessary changes.", "neg"),
+    ("Speed is more important than safety (though it's never said).", "neg"),
+    ("Lots of bitterness and ego.", "neg"),
+    ("This was an excellant company to work for except the chance for women to advance was minimal to none.", "neg"),
+    ("The day to day for me at Home Depot is so stressful that I dread going to work, things that should be simple are made more difficult by the management team.", "neg"),
+    ("No set schedule.", "neg"),
+    ("management is really bad, they don't support the new employees.", "neg"),
+    ("rude condescending customers.", "neg"),
+    ("Harassment is severe and mgt/supervisors do not care.", "neg"),
+    ("They worked us like dogs.", "neg"),
+    (" Enjoyable part of the job was seeing the rewards of a productive store operations.", "pos"),
+    ("I had a good time at home depot and made many friends in my time there.", "pos"),
+    ("Everyone there is like family.", "pos"),
+    ("Family like cultured.", "pos"),
+    ("Everyone there is super helpful and are always eager to assist customers with any and everything they may need or want with their project or products.", "pos"),
+    ("Not a bad job.", "pos"),
+    ("Good fundamentals and values on the culture side.", "pos"),
+    ("pretty low stress.", "pos"),
+    ("place you can learn and has lots of potential for growth if you apply yourself. ", "pos"),
+    ("Most of the people are good to work with.", "pos"),
+    ("At Depot I learned how to provide outstanding customer service and resolve customer issues.", "pos"),
+    ("Bonuses and the direction of the company is great.", "pos"),
+    ("Enjoyed working with the customers and co-workers.", "pos"),
+    ("Home Depot is a fun place to work.", "pos"),
+    ("I had training in many areas of the department.", "pos"),
+    ("0 to extremely limited advancement, extremely limited cross-training opportunities, managers micromanaging and making tasks more taxing on it's employee's.", "pos"),
+    ("The pay was excellant.", "pos"),
+    ("Worked independatly as well as part of a team to accomplich multipule tasks each day.", "pos"),
+    ("you have the ability to learn critical life skills and product knowledge that will help you in the future as a home owner, business owner or adult life in general.", "pos"),
+    ("Worked with great people from all ethnicities and it was really fun.", "pos"),
+    ("Overall a great place to work.", "pos"),
+    ("Everyone one is fun and very helpful to new comers.", "pos"),
+    ("Friendly work environment with plenty of opportunity for advancement.", "pos"),
+    ("Compare to other stores the benefits are good. ", "pos")
+    ]
+
+cl = NaiveBayesClassifier(train)
+print("NAIVE BAYES CLASSIFIER HAS BEEN TRAINED!!")
+print("NOW GATHERING HOME DEPOT REVIEWS FROM INDEED.COM!!")
+pg = []
+#THE URL FOR THE PAGES END IN INCREASING INCREMENTS OF 20
+for i in range(10):
+    pg.append(i * 20)
+
+HomeDepotData={}
+#LISTS
+review_list = []
+header_list = []
+position_list = []
+review_sentiment_list = []
+review_sentiment_js = []
+
+
+for i in pg:
+    print('https://www.indeed.com/cmp/The-Home-Depot/reviews?fcountry=ALL&start=' + str(i))
+    
+    url = requests.get('https://www.indeed.com/cmp/The-Home-Depot/reviews?fcountry=ALL&start=' + str(i))
+    html_content = url.text
+    soup = BeautifulSoup(html_content, 'lxml')
+    header = soup.find_all(class_="cmp-review-title")
+    position= soup.find_all(class_="cmp-reviewer")
+    review = soup.find_all(itemprop="reviewBody")
+    blob = TextBlob(str(review), classifier=cl)
+    
+    for s in blob.sentences:
+        review_sentiment_list.append(s + s.classify())
+    for i in range(len(review)):
+        review_list.append(review[i].get_text())
+    for i in range(len(position)):
+        position_list.append(position[i].get_text()) 
+    for i in range(len(header)):
+        header_list.append(header[i].get_text())    
+
+#HAD TO CHANGE OBJECT INTO A JSON FORMAT
+class Thing(object):
+    def __init__(self, name):
+        self.name = name
+obj = Thing(review_sentiment_list)
+review_sentiment_js = jsonpickle.encode(obj)
+
+
+HomeDepotData['review']=review_list
+HomeDepotData['header']=header_list
+HomeDepotData['position']=position_list
+HomeDepotData['sentiment']=review_sentiment_js
+print(HomeDepotData)
+
+
+json_data = json.dumps(HomeDepotData)
+print(json_data)
+es.index("homedepot","reviews", json_data)
+print("WEB CRAWLING AND SENTIMENT ANALYSIS ON HOME DEPOT REVIEWS COMPLETE!!")
