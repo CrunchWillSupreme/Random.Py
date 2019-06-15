@@ -1,0 +1,258 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 14 16:17:50 2018
+@author: whan
+"""
+
+import os
+import pyodbc
+import pandas as pd
+import datetime
+
+#os.chdir(r'P:\Tests')
+os.getcwd()
+#os.mkdir('Stats')
+os.chdir(r'P:\Tests\Stats')
+
+server = 'VA1-PCORSQL191,21612'
+port = '1433'
+driver = '{SQL server}'
+
+cnn = pyodbc.connect('DRIVER=' + driver + ';PORT=' + port + ';SERVER=' + server)
+with open('BulkSQL.sql') as f:
+    query = f.read()
+    
+data = pd.read_sql(query, cnn)
+
+data.columns.values.tolist()
+#data.to_csv('bulk.csv')
+#data = pd.read_csv(PATH)
+
+closed = data.loc[data['Claim Folder Sub Status'] == 'C']  # filter only claims with sub status 'C'
+closed.columns.values.tolist() 
+list(closed) # same as above
+closed.to_csv('closed.csv')
+
+closed.shape # dimensions of the data frame
+closed['Folder Closed Date'][0:100] #get top 100 rows of this column
+past10yr = closed[(closed['Folder Closed Date'] > '2007-01-01')] # filter by date
+
+
+data= pd.read_excel(r'\\MKLFILE\CLAIMS\corpfs06-filedrop\ClaimsReporting\Ad Hoc Reporting\2018\Legal X- IA\2018 IA Expense_V2.xlsx', sheetname = 'Raw_Data', header = 0)
+data=pd.read_excel(open(r'\\MKLFILE\CLAIMS\corpfs06-filedrop\ClaimsReporting\Ad Hoc Reporting\2018\Legal X- IA\2018 IA Expense_V2.xlsx','rb'), sheetname='Raw_Data')
+data.sheet_names
+
+#############################################################################################################################################
+############################## MATPLOTLIB.PYPLOT - STUDY ####################################################################################
+#############################################################################################################################################
+#############################################################################################################################################
+import matplotlib.pyplot as plt
+import random
+from collections import Counter
+import pandas as pd
+import seaborn as sns
+
+#x=random.sample(range(1,20),200)
+x=[random.randrange(1,20) for i in range(500)]
+
+x=[]
+for i in range(500):
+    y=random.randint(1,20)
+    x.append(y)   
+ 
+randnums=Counter(x) #gets counts as dict
+
+
+
+_ = plt.hist(df['colname'])
+_ = plt.xlabel('xaxis')
+_ = plt.ylabel('counts')
+plt.show()
+
+#Distribution
+_ = plt.hist(x, bins=10)
+#bin_edges = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20]
+#_ = plt.hist(x, bins= bin_edges)
+_ = plt.xlabel('rand numbers')
+_ = plt.ylabel('counts')
+plt.show()
+
+
+
+sns.set()
+sns.set(context = 'talk', style='dark', palette='pastel')
+_ = plt.hist(x, bins = 10)
+_ = plt.xlabel('rand numbers')
+_ = plt.ylabel('counts')
+plt.show()
+
+
+#Make DF
+counts=[]
+for val in randnums.values():
+    counts.append(val)
+    
+nums=[]
+#nums=[nums.append(key) for key in randnums.keys()]
+for key in randnums.keys():
+    nums.append(key)
+
+randDF = pd.DataFrame({
+        'Nums': nums,
+        'Counts': counts})
+newlist=[]
+for i in range(len(randDF['Nums'])):
+    newlist.append(random.randint(0,1))  
+sex=[]
+for i in newlist:
+    if i == 0:
+        sex.append('Female')
+    else:
+        sex.append('Male')
+sex=pd.Series(sex)
+randDF['sex'] = sex.values
+
+
+
+#####bar charts and histograms
+x= [2,4,6,8,10]
+y = [6,7,8,2,4]
+
+x2= [1,3,5,7,9]
+y2 = [7,8,2,4,2]
+
+plt.bar(x, y, label='Bars1', color = 'r')
+plt.bar(x2, y2, label='Bars2', color = 'c')
+plt.legend()
+plt.show()
+
+#Line
+x= [1,2,3]
+y = [5,7,4]
+
+x2 = [1,2,3]
+y2 = [10,14,12]
+
+plt.plot(x, y, label = 'First Line')
+plt.plot(x2, y2, label = 'Second Line')
+plt.xlabel('Plot Number')
+plt.ylabel('Important var')
+plt.title('Interesting Graph\nCheck it out')
+plt.legend()
+plt.show()
+
+####get data from internet
+import urllib
+import matplotlib.dates as mdates
+import numpy as np
+
+def bytespdate2num(fmt, encoding='utf-8'):
+    strconverter = mdates.strpdate2num(fmt)
+    def bytesconverter(b):
+        s=b.decode(encoding)
+        return strconverter(s)
+    return bytesconverter
+    
+    
+def graph_data(stock):
+    stock_price_url = 'http://chartapi.finance.yahoo.com/instrument/1.0/'+stock+'/chartdata;type=quote;range=10y/csv'
+    source_code = urllib.request.urlopen(stock_price_url).read().decode()
+    stock_data=[]
+    split_source = source_code.split('\n')
+    
+    for line in split_source:
+        split_line = line.split(',')
+        if len(split_line) == 6:
+            if 'values' not in line and 'labels' not in line:
+                stock_data.append(line)
+    
+    date, closep, highp, lowp, openp, volume = np.loadtxt(stock_data,
+                                                          delimiter= ',',
+                                                          unpack=True,
+                                                          # %Y = full year 2015
+                                                          # %y = partial year 15
+                                                          # %m = number month
+                                                          # %d = number day
+                                                          # %H = Hours
+                                                          # %M = minutes
+                                                          # %S = seconds
+                                                          converters={0: bytespdate2num('%Y%m%d')})
+    plt.plot_date(date, closep, '-', labels= 'Price')
+    
+    plt.xlabel('Date')
+    plt.ylabel('Price')
+    plt.title('Interesting Graph\nCheck it out')
+    plt.legend()
+    plt.show()
+    
+graph_data('TSLA')
+
+##################################### ^^ NOT WORKING ^^
+####### SEABORN TUTORIAL ############
+tips = sns.load_dataset("tips")
+sns.get_dataset_names()
+
+sns.set(style="ticks", color_codes=True)
+tips = sns.load_dataset("tips")
+sns.catplot(x="day", y="total_bill", data=tips);
+
+### VISUALIZING STATISTICAL RELATIONSHIPS
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set(style="darkgrid")
+###Scatter Plots
+tips = sns.load_dataset("tips")
+sns.relplot(x="total_bill", y="tip", data=tips)
+# adding 3rd dimension
+sns.relplot(x="total_bill", y="tip", hue="smoker", data=tips)
+# different marker
+sns.relplot(x="total_bill", y="tip", hue="smoker", style="smoker", data=tips)
+
+
+### PYGAL
+import pygal
+bar_chart = pygal.Bar()        #create a bar graph object
+bar_chart.add('Fibonacci', [0,1,1,2,3,5,8,13,21,34,55])    #add some values
+bar_chart.add('Padovan', [1, 1, 1, 2, 2, 3, 4, 5, 7, 9, 12])
+#bar_chart.render()
+bar_chart.render_to_file(r'P:\GitHub\DataVis-py\bar_chart.svg')      #save the svg to a file
+#make a stacked bar
+bar_chart = pygal.StackedBar()
+bar_chart.add('Fibonacci', [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55])
+bar_chart.add('Padovan', [1, 1, 1, 2, 2, 3, 4, 5, 7, 9, 12])
+bar_chart.render_to_file(r'P:\GitHub\DataVis-py\stackedbar_chart.svg')
+#Horizontal stacked bar
+bar_chart = pygal.HorizontalStackedBar()
+bar_chart.add('Fibonacci', [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55])
+bar_chart.add('Padovan', [1, 1, 1, 2, 2, 3, 4, 5, 7, 9, 12])
+bar_chart.render_to_file(r'P:\GitHub\DataVis-py\Horizontalstackedbar_chart.svg')
+#Title and Labels
+bar_chart = pygal.HorizontalStackedBar()
+bar_chart.title = "Remarquable sequences"
+bar_chart.x_labels = map(str, range(11))
+bar_chart.add('Fibonacci', [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55])
+bar_chart.add('Padovan', [1, 1, 1, 2, 2, 3, 4, 5, 7, 9, 12])
+bar_chart.render_to_file(r'P:\GitHub\DataVis-py\TitleHorizontalstackedbar_chart.svg')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### PyDyGraph
+import pydygraphs
+import numpy as np
